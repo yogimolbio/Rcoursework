@@ -1,0 +1,215 @@
+---
+title: "08032021-Exercises"
+author: "Yogesh"
+date: "3/8/2021"
+output: pdf_document
+---
+
+##
+```{r}
+library(devtools)
+library(tidyverse)
+```
+
+```{r}
+open_source <- tibble(names = c("Apache_2.0", "MIT", "GPLv3", "GPLv2", "BSD 3", "LGPLv2.1","BSD2", "Microsoft Public", "Microsoft .NET Library", "LGPL2.0"), Percent = c(28, 26, 10, 10, 5, 4, 2, 1, 1, 1))
+open_source
+```
+
+```{r}
+pct <- c(28, 26, 10, 10, 5, 4, 2, 1, 1, 1)
+names = c("Apache_2.0", "MIT", "GPLv3", "GPLv2", "BSD 3", "LGPLv2.1","BSD2", "Microsoft Public", "Microsoft .NET Library", "LGPL2.0")
+
+table <- tibble(names, pct)
+
+table  
+
+table %>% 
+  ggplot(mapping = aes(
+    y = pct,
+    x = fct_reorder(names, pct, .desc = TRUE)
+    ))+
+  geom_col()
+
+```
+
+```{r}
+open_source %>% 
+  ggplot(mapping = aes(y = pct,
+                       x = fct_reorder(names, pct)
+                       ))+
+geom_col()
+```
+
+```{r}
+load(file = "data/gravier.RData")
+```
+
+```{r}
+tibble(gravier)
+```
+```{r}
+str(gravier)
+```
+```{r-Data plucking}
+data('gravier', package = 'datamicroarray')
+set.seed(676571)
+cancer_data=mutate(as_tibble(pluck(gravier,"x")),y=pluck(gravier,"y"),pt_id=1:length(pluck(gravier, "y")),age=round(rnorm(length(pluck(gravier,"y")),mean=55,sd=10),1))
+cancer_data=rename(cancer_data,event_label=y)
+cancer_data$age_group=cut(cancer_data$age,breaks=seq(10,100,by=10))
+```
+
+```{r using bind_cols}
+gravier_data <- bind_cols(
+  
+) %>% 
+   mutate(outcome = case_when(outcome == "good" ~ 0,
+                            outcome == "poor" ~ 1))
+```
+
+
+```{r}
+gravier_data <-
+mutate(as_tibble(pluck(gravier, "x")), outcome = pluck(gravier, "y"))
+
+gravier_data
+```
+```{r}
+gravier_data <- gravier_data %>% 
+  select(outcome, everything())
+```
+
+```{r}
+gravier_data <- gravier_data %>% 
+  mutate(outcome = case_when(outcome == "good" ~ 0,
+                            outcome == "poor" ~ 1))
+```
+
+```{r}
+gravier_data %>% 
+  count(outcome)
+```
+##Modelling
+
+
+```{r}
+gravier_data %>% 
+  glm(outcome ~ g2E09,
+      data = .,
+      family = binomial(link = "logit")
+      )
+```
+
+
+```{r}
+library(broom)
+
+  gravier_data %>% 
+  glm(outcome ~ g2E09,
+      data = .,
+      family = binomial(link = "logit")) %>% 
+tidy
+```
+
+
+```{r}
+library(broom)
+
+fit <- 
+  gravier_data %>% 
+  glm(outcome ~ g2E09,
+      data = .,
+      family = binomial(link = "logit"))
+
+tidy(fit) %>% 
+  select(term, p.value) %>%
+  mutate(p.value = round(p.value, digits = 4)) %>% 
+  filter(term == "g2E09")
+```
+
+```{r}
+gravier_data_long <- gravier_data %>% 
+  pivot_longer(cols = -outcome,
+               names_to = "gene",
+               values_to = "log2_expr_level"
+    
+  )
+
+gravier_data_long
+```
+
+```{r}
+library(purrr)
+
+gravier_data_long_nested <- gravier_data_long %>% 
+  group_by(gene) %>% 
+  nest() 
+```
+
+```{r}
+set.seed(7)
+gravier_data_long_nested <- gravier_data_long_nested %>%
+  sample_n(size = 100)
+```
+
+
+```{r}
+tibble(x = rnorm(100),
+       y = rnorm(100),
+       g = sample(seq(1, 4),
+                  size = 100,
+                  replace = TRUE)) %>% 
+  group_by(g) %>% 
+  nest() %>% 
+  ungroup() %>% 
+  mutate(mu_group = map(data, ~glm(y ~ x, data = .x)))
+```
+
+```{r}
+library(purrr)
+
+gravier_data_nest <- gravier_data_nest %>%
+mutate(mdl = map(data, ~glm(outcome ~ log2_expr_level,
+                            data = .x, 
+                            family = binomial(link = "logit"))))
+
+gravier_data_nest
+```
+
+
+
+```{r}
+gravier_data_nested <- gravier_data_nested %>% 
+   mutate(mdl = map(data, ~glm(outcome ~ log2_expr_level, 
+                           data = .x,
+                           family = binomial(link = "logit"))))
+
+```
+```{r}
+gravier_data_nested <- gravier_data_nested %>%
+  mutate(mdl_tidy = map(mdl, tidy, conf.int = TRUE)) %>%
+  unnest(mdl_tidy)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

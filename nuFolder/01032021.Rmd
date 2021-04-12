@@ -1,0 +1,448 @@
+---
+title: '01032021'
+author: "Yogesh"
+date: "3/1/2021"
+output: pdf_document
+---
+
+##01032021 Exercises
+
+```{r}
+library(tidyverse)
+library(fs)
+library(patchwork)
+```
+
+
+##Q1 : What are the dimensions of the peptide_data and meta_data respectively?
+##
+```{r}
+peptide_data <- read_csv(file = "data/peptide-detail-ci.csv")
+meta_data <- read_csv(file = "data/subject-metadata.csv")
+```
+```{r}
+view(peptide_data)
+```
+
+
+```{r}
+dim(peptide_data)
+```
+```{r}
+dim(meta_data)
+```
+
+##Q2: Q2: Which variable is shared between the two data sets?
+#Experiments. the additional code, removes the HLA Class II data from the meta data.
+
+```{r}
+peptide_meta_data <- left_join(peptide_data, meta_data, by = "Experiment") %>% 
+  select(-matches("D[RQP]"))
+peptide_meta_data
+```
+```{r}
+peptide_meta_data1 <- left_join(meta_data, peptide_data, by = "Experiment")
+```
+
+```{r}
+peptide_meta_data %>% 
+  select(-matches("D[RQP]"))
+peptide_meta_data
+```
+```{r}
+peptide_meta_data1 %>% 
+  select(-matches("DP|DQ|DR"))
+peptide_meta_data1
+```
+
+```{r}
+dim(peptide_meta_data)
+```
+
+##Exploraty Data Analysis I - The meta data
+
+
+#Q4: How many study participants are denoted Healthy? 113603
+Q5: Actually, what are the study participants cohort groups and how many are in each?
+
+```{r}
+peptide_meta_data %>% 
+  group_by(Cohort) %>%
+  count()
+```
+
+#Now, create a histogram of the age of the study participants (Remember to read any error-messages you may get)
+#Q6: Take a look at the age variable to understand what happened?
+#the age is a chr variable, where as the observations are values
+#Q7: How are NAs denoted in the data?
+#therefore, the variable "Age" needs to be changed from chr to dbl/int
+```{r}
+meta_data %>%
+  ggplot(aes(x = Age))+
+  geom_bar()
+```
+```{r}
+peptide_meta_data <- peptide_meta_data %>% 
+  mutate(Age = as.numeric(Age))
+
+peptide_meta_data
+```
+
+#Q8: From the histogram, approximately how many are participants are 33 years old? - 15000 participants
+```{r}
+peptide_meta_data %>% 
+  select(Age) %>% 
+  drop_na() %>%
+  ggplot(mapping = aes(x = Age))+
+  geom_histogram(binwidth = 1)
+```
+#Q9: Compare this number to the dimensions of the meta_data (see Q1), what happened?
+#There are several observations on the peptide_data with the same experiment name (comes from the variable - Index in genome)
+
+Using the dplyr verbs select and distinct, re-re-create the histogram of the age of the study participants and again, play around with and understand the binwidth
+
+```{r}
+peptide_meta_data %>% 
+  distinct(Experiment, .keep_all = TRUE) %>%
+  select(Age) %>% 
+  drop_na() %>% 
+ ggplot(aes(
+    x = Age
+  ))+
+    geom_histogram(binwidth = 1)
+```
+#Q10: From the histogram, how many are participants are 33 years old? 6
+#Q11: How many of the participants are women? Men?
+
+
+#peptide_meta_data %>% 
+  distinct(Experiment, .keep_all = TRUE) %>%
+  select(Age) %>% 
+  count(Gender)
+#Recreate the below visualisation
+
+
+```{r}
+peptide_meta_data <- peptide_meta_data %>% 
+  na_if("N/A")
+```
+
+```{r}
+p1 <- peptide_meta_data %>% 
+  distinct(Experiment, .keep_all = TRUE) %>%
+  drop_na(Gender) %>% 
+  ggplot(mapping = aes(x = Age,
+                      y = Cohort,
+                      fill = Gender))+
+    geom_boxplot(alpha = 0.5, show.legend = FALSE)+
+    theme_classic()
+
+p2 <- peptide_meta_data %>% 
+  distinct(Experiment, .keep_all = TRUE) %>%
+  drop_na(Gender) %>% 
+  ggplot(mapping = aes(y = Cohort,
+                       fill = Gender))+
+    geom_bar(alpha = 0.5, position = "dodge")+
+    theme_classic()+
+  theme(legend.position = "bottom")+
+  xlab("n")
+  
+  
+p1 / p2
+```
+
+
+##Exploraty Data Analysis II - The Sequence Data
+
+```{r}
+allele_data1 <- peptide_meta_data %>%
+  select(Subject, matches("HLA")) %>% 
+  distinct
+allele_data1
+```
+
+```{r}
+allele_data_long <- allele_data %>% 
+  pivot_longer(cols = contains("HLA"),
+               names_to = "Gene",
+               values_to = "Allele")
+allele_data_long
+```
+
+#Q12: How many unique alleles are there?
+Using the View()-function, look at the unique alleles - Notice something? Some alleles are e.g. A*11:01, whereas others are B*51:01:02. You can find information on why, by visiting Nomenclature for Factors of the HLA System.
+
+Long story short, we only want to include Field 1 (allele group) and Field 2 (Specific HLA protein). You have prepared the stringr-package for today. See if you can find a way to reduce e.g. B*51:01:02 to B*51:01 and then create a new variable Allele_F_1_2 accordingly, while also removing the _1 subscripts from the Gene-variable (It is an artifact from having the data in a wide format, where you cannot have two variables with the same name) and removing any NAs
+
+
+```{r}
+allele_data_long %>% 
+  group_by(Allele) %>% 
+  count()
+```
+#Removing the final allele number
+
+```{r}
+allele_data_long <- 
+  allele_data_long %>%
+  mutate(Allele_F_1_2 = str_sub(Allele, 1L, 7L),
+        Gene = str_sub(Gene, 1L, 5L)) %>% 
+  drop_na()
+
+allele_data_long
+```
+#Q13 - 110
+```{r}
+allele_data_long %>% group_by(Allele_F_1_2) %>% summarise(n = n())
+```
+
+"Q14: What are the top 3 alleles in terms of counts in the data?
+```{r}
+allele_data_long %>% count(Allele_F_1_2) %>% arrange(desc(n))
+```
+#Q15: Per gene and in terms of percent, what are the 3 top alleles? Recreate this plot to answer the question 
+
+```{r}
+allele_data_long %>%
+  count(Gene)
+```
+
+```{r}
+allele_data_long %>% 
+  count(Allele_F_1_2) %>% arrange(desc(n))
+```
+
+```{r}
+hlaa1 <- allele_data_long %>% 
+  filter(Gene == "HLA-A") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct))%>%
+  ggplot(aes(x = pct,
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family = "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3,
+        plot.margin = unit(c(0.1,0.1,0.1,0.1), "mm"))+
+  scale_x_continuous(limits = c(0,35))+
+  labs(x = "", 
+       y = "Allele",
+       title = "HLA-A")
+  
+hlab1 <- allele_data_long %>% 
+  filter(Gene == "HLA-B") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct))%>%
+  ggplot(aes(x = pct,
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family = "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3,
+        plot.margin = unit(c(0.1,0.1,0.1,0.1), "mm"))+
+  scale_x_continuous(limits = c(0,35))+
+  labs(x = "Observed Allele Frequency (Within each gene)[%]", 
+       y = "",
+       title = "HLA-B")
+
+hlac1 <- allele_data_long %>% 
+  filter(Gene == "HLA-C") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct))%>%
+  ggplot(aes(x = pct,
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family = "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5), 
+        aspect.ratio = 3,
+        plot.margin = unit(c(0.1,0.1,0.1,0.1), "mm"))+
+  scale_x_continuous(limits = c(0,35))+
+  labs(x = "", 
+       y = "",
+       title = "HLA-C")
+  
+hlaa1 + hlab1 + hlac1
+
+
+```
+
+
+```{r}
+hlaa <- allele_data_long %>% 
+  filter(Gene == "HLA-A") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct)) %>% 
+  ggplot(aes(x = pct, 
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family =  "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3)+
+  labs(x = "",
+       y = "Alleles",
+       title = "HLA-A")
+
+hlab <- allele_data_long %>% 
+  filter(Gene == "HLA-B") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct)) %>% 
+  ggplot(aes(x = pct, 
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family =  "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3)+
+  labs(x = "",
+       y = "",
+       title = "HLA-B")
+
+hlac <- allele_data_long %>% 
+  filter(Gene == "HLA-C") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct)) %>% 
+  ggplot(aes(x = pct, 
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family =  "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3)+
+  labs(x = "",
+       y = "",
+       title = "HLA-C")
+
+hlaa + hlab + hlac
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+allele_freq_data <- allele_data_long %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(Freq = round(n*100/238, digits = 1)) %>% 
+  arrange(desc(Freq))
+
+allele_freq_data
+```
+
+```{r}
+allele_data_long %>% 
+  select(Gene, Allele_F_1_2) %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(Freq = round(n*100/238, digits =1))
+
+allele_data_long
+```
+```{r}
+allele_data_long <- allele_data_long %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(Freq = round(n*100/238, digits =1))
+
+allele_data_long
+```
+```{r}
+allele_data_long <- allele_data_long %>% 
+  mutate(gene = case_when(Allele_F_1_2 = str_detect(Allele_F_1_2, "A") ~ "HLA-A",
+                          Allele_F_1_2 = str_detect(Allele_F_1_2, "B") ~ "HLA-B",
+                          Allele_F_1_2 = str_detect(Allele_F_1_2, "C") ~ "HLA-C"
+                   ))
+
+allele_data_long
+```
+
+```{r}
+allele_data_long %>% 
+  pivot_wider(id_cols = Allele_F_1_2,
+               names_from = gene,
+               values_from = Freq)
+```
+
+
+
+
+
+```{r}
+allele_data_long %>% 
+   ggplot(mapping = aes(x = Freq,
+                       y = Allele_F_1_2))+
+  geom_col()+
+  facet_wrap(~gene)
+```
+```{r}
+p1 <- allele_data_long %>%
+  filter(gene == "HLA-A") %>% 
+   ggplot(mapping = aes(x = Freq,
+                       y = Allele_F_1_2))+
+  geom_col()
+
+p2 <- allele_data_long %>% 
+  filter(gene == "HLA-B") %>% 
+   ggplot(mapping = aes(x = Freq,
+                       y = Allele_F_1_2))+
+  geom_col()
+
+p3 <- allele_data_long %>%
+  filter(gene == "HLA-C") %>% 
+   ggplot(mapping = aes(x = Freq,
+                       y = Allele_F_1_2))+
+  geom_col()
+
+p1 + p2 + p3
+```
+
+
+
+
+
+

@@ -1,0 +1,178 @@
+---
+title: "Lab 6"
+author: "Marie"
+date: "3/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+```{r}
+library(tidyr)
+```
+
+Making tibble
+
+```{r}
+source_license <- tibble(names = c("Apache_2.0", "MIT", "GPLv3", "GPLv2", "BSD 3", "LGPLv2.1","BSD2", "Microsoft Public", "Microsoft .NET Library", "LGPL2.0"), pct = c(28, 26, 10, 10, 5, 4, 2, 1, 1, 1))
+
+source_license
+```
+
+```{r}
+source_license %>%
+  ggplot(mapping = aes(y=pct, x=fct_reorder(names, pct, .desc = TRUE)))+
+  geom_col()
+```
+
+## Gravier data
+
+```{r}
+load("data/gravier.RData")
+
+str(gravier)
+```
+```{r}
+x <- pluck(gravier, "x")
+y <- pluck(gravier, "y")
+
+#gravier_data <- gravier %>%
+  
+```
+
+```{r}
+
+gravier_data <- mutate(as_tibble(pluck(gravier,"x")),
+                      outcome=pluck(gravier,"y"))
+
+
+gravier_data <- gravier_data %>%
+  select("outcome", everything()) %>%
+  mutate(outcome = case_when(outcome == "good" ~ 0 ,
+                             outcome == "poor" ~ 1))
+
+gravier_data %>%
+  count(outcome)
+
+```
+
+
+## Modelling
+
+```{r}
+fit <- gravier_data %>% 
+  glm(outcome ~ g2E09,
+      data = .,
+      family = binomial(link = "logit"))
+```
+Q1: What are the coefficients for the intercept and your gene?
+
+Intercept = -0.7, slope = -2.184
+
+Q2: What is the p-value for your gene?
+
+```{r}
+library(broom)
+
+tidy(fit) %>%
+  select(term, p.value) %>%
+  filter(term == "g2E09") %>%
+  mutate(p.value = round(p.value, digits = 4))
+```
+
+
+Pivot longer
+
+```{r}
+gravier_data_long <- gravier_data %>%
+  pivot_longer(cols = contains("g"),
+              names_to = "gene",
+              values_to = "log2_expr_level")
+
+```
+
+```{r}
+gravier_data_nest <- gravier_data_long %>%
+  group_by(gene) %>%
+  nest() %>%
+  ungroup(gene)
+
+```
+
+
+```{r}
+set.seed(7)
+gravier_data_nest <- gravier_data_nest %>%
+  sample_n(size = 100)
+
+```
+
+
+```{r}
+library(purrr)
+gravier_data_nest <- gravier_data_nest %>% 
+   mutate(mdl = map(data, ~glm(outcome ~ log2_expr_level, 
+                           data = .x,
+                           family = binomial(link = "logit"))))
+
+```
+
+```{r}
+gravier_data_nest <- gravier_data_nest %>%
+  mutate(mdl_tidy = map(mdl, tidy, conf.int = TRUE)) %>%
+  unnest(mdl_tidy)
+```
+
+```{r}
+gravier_data_nest <- gravier_data_nest %>%
+  filter(term == "log2_expr_level")
+```
+
+```{r}
+gravier_data_nest <- gravier_data_nest %>%
+  mutate(identified_as = case_when(p.value < 0.05 ~ "significant",
+                                   p.value >= 0.05 ~ "non_significant"))
+```
+
+Manhattan plot (neg_log10_p)
+
+```{r}
+gravier_data_nest <- gravier_data_nest %>%
+  mutate(neg_log10_p = -log10(p.value))
+```
+
+plotting
+
+```{r}
+gravier_data_nest %>%
+  ggplot(aes(x = fct_reorder(gene, neg_log10_p, .desc = TRUE),
+             y = neg_log10_p,
+             color = identified_as))+
+  geom_point()+
+  geom_hline(yintercept = -log10(0.05), 
+             linetype = "dashed")+
+  theme_classic(base_family = "Avenir", 
+                base_size = 8)+
+  theme(legend.position = "bottom", 
+        axis.text.x = element_text(angle=45, 
+                                   hjust=1))+
+  labs(x="Gene", 
+       y="Minus log10(p)")
+  
+```
+
+```{r}
+gravier_data_nest %>%
+  ggplot(aes(y = fct_reorder(gene, estimate, .desc = TRUE),
+             x = estimate,
+             color = identified_as))+
+  geom_point()+
+  #coord_flip()+
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high))+
+  geom_vline(xintercept = 0, linetype = "dashed")+
+  theme_classic()
+```
+

@@ -1,0 +1,58 @@
+---
+title: '15022021'
+author: "Yogesh"
+date: "2/15/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Lab 3 - **Data visualization**
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+SPE = read.csv(file = "http://userweb.eng.gla.ac.uk/umer.ijaz/bioinformatics/ecological/SPE_pitlatrine.csv")
+write.csv(x = SPE, file = "data/SPE_pitlatrine.csv")
+ENV = read.csv("http://userweb.eng.gla.ac.uk/umer.ijaz/bioinformatics/ecological/ENV_pitlatrine.csv")
+write.csv(x = ENV, file = "data/ENV_pitlatrine.csv")
+```
+```{r}
+SPE %>%
+    pivot_longer(cols = -Taxa,
+               names_to = "Samples",
+               values_to = "OTU_Count") %>%
+  full_join(ENV, by = "Samples") %>%
+  mutate(site = case_when(str_detect(Samples, "^T") ~ "Tanzania",
+                          str_detect(Samples, "^V") ~ "Vietnam")) %>% 
+  write_tsv(file = "data/SPE_ENV.tsv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

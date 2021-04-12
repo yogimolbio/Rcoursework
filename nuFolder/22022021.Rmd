@@ -1,0 +1,452 @@
+---
+title: "Data wragling - 2202"
+author: "Yogesh"
+date: "2/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data-wrangling exercises
+
+```{r}
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(tibble)
+library(fs)
+```
+
+```{r}
+# Here goes the code... Note how this part does not get executed
+```
+
+```{r}
+tibble(x = c(4, 3, 5, 1, 2))
+tibble(x = c(4, 3, 5, 1, 2)) %>% filter(x > 2)
+tibble(x = c(4, 3, 5, 1, 2)) %>% arrange(x)
+tibble(x = c(4, 3, 5, 1, 2)) %>% arrange(desc(x))
+tibble(x = c(4, 3, 5, 1, 2)) %>% arrange(desc(desc(x)))
+tibble(x = c(4, 3, 5, 1, 2), y = c(2, 4, 3, 5, 1)) %>% select(x)
+tibble(x = c(4, 3, 5, 1, 2), y = c(2, 4, 3, 5, 1)) %>% select(y)
+tibble(x = c(4, 3, 5, 1, 2), y = c(2, 4, 3, 5, 1)) %>% select(-x)
+tibble(x = c(4, 3, 5, 1, 2), y = c(2, 4, 3, 5, 1)) %>% select(-x, -y)
+tibble(x = c(4, 3, 5, 1, 2)) %>% mutate(x_dbl = 2*x)
+tibble(x = c(4, 3, 5, 1, 2)) %>% mutate(x_dbl = 2 * x, x_qdr = 2*x_dbl)
+tibble(x = c(4, 3, 5, 1, 2)) %>% summarise(x_mu = mean(x))
+tibble(x = c(4, 3, 5, 1, 2)) %>% summarise(x_max = max(x))
+tibble(lbl = c("A", "A", "B", "B", "C"), x = c(4, NA, 5, 1, 2)) %>% group_by(lbl) %>% summarise(x_mu = mean(x), x_max = max(x))
+tibble(lbl = c("A", "A", "B", "B", "C"), x = c(4, 3, 5, 1, 2)) %>% group_by(lbl) %>% summarise(n = n())
+tibble(lbl = c("A", "A", "B", "B", "C"), x = c(4, 3, 5, 1, 2)) %>% count(lbl)
+tibble(lbl = c("A", "A", "B", "B", "C"), x = c(4, 3, 5, 1, 2)) %>% summarise(n = n())
+```
+
+#Q1: 4,3,5
+#Q2: 1,2,3,4,5
+#Q3: 5,4,3,2,1,
+#Q4: 1,2,3,4,5 (desc(desc(x)))
+#Q5: 4,3,5,1,2
+#Q6: 2,4,3,5,1
+#Q7: 2,4,3,5,1
+#Q8:
+#Q9: x_dbl = 8,6, 10,2,4
+#Q10: x_dbl and x_qdr
+#Q11: we get a new tibble of the mean(x) which is one variable
+#Q12: 5
+#Q13: Grouip by A B C, and gives the mean according to groups, and max(x)
+#Q14: Grouip by A B C and n = 5
+
+
+
+### Working with Diabetes Data set
+```{r}
+diabetes_data <- read_csv(file = "data/diabetes.csv")
+diabetes_data
+View(diabetes_data)
+```
+
+#Q1: Observations - 403, Variables - 19
+#Q2: The data is tidy
+#Q3: chr - Character or strings, dbl - doubles or real number, int - integers
+
+
+```{r}
+diabetes_data<- diabetes_data %>% mutate(height_cm = round(height*2.54, 1),
+                         weight_kg = round(weight/2.205, 1),
+                         waist_cm = round(waist*2.54, 1),
+                         hip_cm = round(hip*2.54, 1))
+```
+
+#Q4: 349
+```{r}
+diabetes_data_metric %>% 
+  count(weight_m < 100)
+```
+
+#Q5: 53
+```{r}
+diabetes_data_metric %>% 
+  count(weight_m > 100)
+```
+
+#Q6:51
+```{r}
+diabetes_data_metric %>% 
+  filter(weight_m > 100) %>% 
+  count(height_m < 160)
+```
+```{r}
+diabetes_data_metric %>% 
+  filter(weight_m > 100, height_m < 160) %>% 
+  count()
+```
+
+
+#Q7: 4
+```{r}
+diabetes_data_metric %>% 
+  filter(gender == "female", height_m > 180) %>% 
+  count ()
+```
+
+#Q8: 51
+```{r}
+diabetes_data_metric %>% 
+  filter(gender == "male", height_m > 180) %>% 
+  count ()
+```
+
+#Q9: 95
+```{r}
+diabetes_data_metric %>% 
+  filter(location == "Louisa", 
+         gender == "female",
+         age > 30) %>% 
+count()
+```
+
+#Q10: 1
+```{r}
+diabetes_data_metric %>% 
+  filter(location == "Buckingham", 
+         gender == "male",
+         age < 30,
+         height_m > 190) %>% 
+count()
+```
+
+#Q11: T2: Make a scatter plot of weight versus height and colour by gender for inhabitants of Louisa above the age of 40
+```{r}
+diabetes_data %>% 
+  filter(location == "Louisa",
+         age > 40) %>% 
+  ggplot(mapping = aes(x = weight_kg,
+                     y = height_cm,
+                     color = gender)) +
+  geom_point()
+```
+
+#Q12: T3: Make a boxplot of height versus location stratified on gender for people above the age of 50
+```{r}
+diabetes_data %>% 
+  filter(age > 50) %>% 
+  ggplot(mapping = aes(x = location,
+                     y = height_cm,
+                     fill = gender))+
+  geom_boxplot()
+```
+#Q11: How old is the youngest person? 19
+```{r}
+diabetes_data %>% 
+  arrange(age)
+```
+#Q12: 92
+#Q13 :Of all the 20-year olds, what is the height of the tallest? 182.9
+```{r}
+diabetes_data %>% 
+  filter(age == 20) %>% 
+  arrange(height_cm)
+```
+#Q14: Of all the 20-year olds, what is the height of the shortest? 147.3
+#Q15: Q15: How many columns (variables) starts_with a “b”? 4
+#Q16: How many columns (variables) contains the word “eight”? 
+
+```{r}
+diabetes_data %>% 
+select(starts_with("b"))
+```
+
+```{r}
+diabetes_data %>% 
+  select(contains("eight"))
+```
+#T5: Create a BMI_class variable
+
+
+```{r}
+diabetes_data <- diabetes_data %>%
+  mutate(bmi = weight_kg/(height_cm/100)^2)
+```
+
+
+```{r}
+tibble(x = rnorm(100)) %>% 
+  mutate(trichotomised = case_when(x < -1 ~ "Less than -1",
+                                   -1 <= x & x < 1 ~ "larger than or equal to -1 and smaller than 1",
+                                   1 <= x ~ "Larger than or equal to 1"))
+```
+
+#T5
+```{r}
+diabetes_data <- diabetes_data %>% 
+  mutate(BMI_class = case_when(bmi < 18.5 ~ "underweight",
+                               bmi >= 18.5 & bmi < 25 ~ "normal weight",
+                               bmi >= 25 & bmi < 30 ~ "overweight",
+                               bmi >= 30 & bmi < 35 ~ "obese",
+                               bmi >= 35 & bmi < 40 ~ "severe obesity",
+                               bmi >= 40 & bmi < 50 ~ "morbid obesity",
+                               bmi >= 50 ~"super obese"
+                               ))
+```
+
+
+#T6: Create a boxplot of hdl versus BMI_class
+
+```{r}
+ggplot(data = diabetes_data)+
+  geom_boxplot(mapping = aes(x = reorder(BMI_class, hdl, FUN = median),
+                                           y = hdl))
+```
+#Q17: People with diabetes who have highest hld are underweight.
+
+#T7-T8
+```{r}
+diabetes_data <- diabetes_data %>% 
+  mutate(gender_num = case_when(gender == "male" ~ 1,
+                            gender == "female" ~ 0))
+```
+
+```{r}
+diabetes_data <- diabetes_data %>% 
+  mutate(BFP = 1.39*bmi + 0.16*age - 10.34*gender_num -9)
+```
+
+```{r}
+diabetes_data <- diabetes_data %>% 
+  mutate(WHR = waist_cm/hip_cm)
+```
+
+
+
+#Q18:Which correlate better with BMI, WHR or BFP? (Hint: Is there a certain plot-type, which can visualise if two variables are correlated? Can you perhaps use an R-function to compute the “correlation coefficient”?) 
+
+```{r}
+library(patchwork)
+
+p1 <- diabetes_data %>% 
+  ggplot(mapping = aes(x = bmi,
+                           y = WHR))+
+  geom_jitter()+
+  geom_smooth(method = lm)
+
+p2 <- diabetes_data %>% 
+  ggplot(mapping = aes(x = bmi,
+                           y = BFP))+
+  geom_jitter()+
+  geom_smooth(method = lm)
+
+```
+
+```{r}
+p1 + p2
+```
+
+#Q19:How many women and men are there in the data set?
+
+```{r}
+diabetes_data %>% 
+  group_by(gender) %>% 
+  summarise(n = n())
+```
+#Q20: How many women and men are there from Buckingham and Louise respectively in the data set?
+
+```{r}
+diabetes_data %>% 
+  group_by(location) %>% 
+  summarise(n = n())
+```
+#Q21: How many are in each of the BMI_class groups?
+```{r}
+diabetes_data %>% 
+  group_by(BMI_class) %>% 
+  summarize(n = n())
+```
+#Q22: Given the code below, explain the difference between A and B? Geom_bar does not need a y axis as it displays the number of observations of x on the y axis. Whereas, for geom_col the y axis needs to be specified
+```{r}
+# A
+p3 <- diabetes_data %>%
+  ggplot(aes(x = BMI_class)) +
+  geom_bar()
+
+# B
+p4 <- diabetes_data %>%
+  count(BMI_class) %>%
+  ggplot(aes(x = BMI_class, y = n)) +
+  geom_col()
+```
+```{r}
+p3+p4
+```
+#Q23: What was the average age of the women living in Buckingham in the study?
+```{r}
+diabetes_data %>%
+filter(gender == "female",
+location == "Buckingham") %>%
+summarise(mean_female_buckingham = mean(age))
+```
+
+#T9: T9: For each BMI_class group, calculate the average weight and associated standard deviation
+```{r}
+diabetes_data %>% 
+  group_by(BMI_class) %>% 
+  summarise(mean = mean(weight_kg), SD = sd(weight_kg, na.rm=FALSE))
+```
+
+#Q18:Which correlate better with BMI, WHR or BFP? (Hint: Is there a certain plot-type, which can visualise if two variables are correlated? Can you perhaps use an R-function to compute the “correlation coefficient”?) 
+
+```{r}
+diabetes_data %>%
+select(bmi, BFP, WHR) %>%
+drop_na() %>%
+cor() %>%
+round(4)
+```
+
+
+```{r}
+ggscatter(data = diabetes_data, x = "bmi", y = "WHR",
+                   add = "reg.line", conf.int = TRUE,
+                   cor.coef = TRUE, cor.method = "pearson",
+          add.params = list(color = "red", fill = "lightgray"),
+                   xlab = "Body mass index", ylab = "Waist-hip ratio")
+```
+
+```{r}
+ggscatter(data = diabetes_data, x = "bmi", y = "BFP",
+                   add = "reg.line", conf.int = TRUE,
+                   cor.coef = TRUE, cor.method = "pearson",
+          add.params = list(color = "red", fill = "lightgray"),
+                   xlab = "Body mass index", ylab = "Body fat percentage")
+```
+
+
+#Group assignment - another method to do it
+
+```{r}
+library(patchwork)
+library(ggpubr)
+
+bmi_whr <- ggscatter(data = diabetes_data,
+x = "bmi",
+y = "WHR",
+add = "reg.line",
+add.params = list(color = "red", fill = "lightgray"),
+conf.int = TRUE)+
+stat_cor(method = "pearson")
+
+bmi_bfp <- ggscatter(data = diabetes_data,
+x = "bmi",
+y = "BFP",
+add = "reg.line",
+add.params = list(color = "red", fill = "lightgray"),
+conf.int = TRUE)+
+stat_cor(method = "pearson")
+
+bmi_bfp+bmi_whr
+```
+
+
+```{r}
+library(patchwork)
+library(ggpubr)
+
+bmi_whr1 <- ggscatter(data = diabetes_data, x = "bmi", y = "WHR",
+                   add = "reg.line", conf.int = TRUE,
+                   cor.coef = TRUE, cor.method = "pearson",
+          add.params = list(color = "red", fill = "lightgray"),
+                   xlab = "Body mass index", ylab = "Waist-hip ratio")
+
+bmi_bfp1 <- ggscatter(data = diabetes_data, x = "bmi", y = "BFP",
+                   add = "reg.line", conf.int = TRUE,
+                   cor.coef = TRUE, cor.method = "pearson",
+          add.params = list(color = "red", fill = "lightgray"),
+                   xlab = "Body mass index", ylab = "Body fat percentage")
+
+bmi_bfp1+bmi_whr1
+```
+```{r}
+sum(diabetes_data[["WHR"]])
+```
+```{r}
+diabetes_data %>%
+  summarise(my_mean = mean("BFP"))
+```
+```{r}
+diabetes_data$bmi %>% 
+  mean()
+```
+```{r}
+diabetes_data <- diabetes_data %>% mutate_all(~replace(., is.na(.), 0))
+View(diabetes_data)
+```
+
+```{r}
+diabetes_data %>% 
+  drop_na(BFP) %>% 
+  summarise(mean(BFP))
+```
+```{r}
+diabetes_data <- mutate(diabetes_data, BFP_ratio = BFP - mean(BFP))
+```
+
+```{r}
+diabetes_data %>% 
+  count(BMI_class) %>% 
+  drop_na(BMI_class) %>% 
+  mutate(pct = n/sum(n) * 100) %>% 
+  ggplot(aes(x = BMI_class, y = pct))+
+  geom_col()
+```
+```{r}
+diabetes_data <- diabetes_data %>% 
+  mutate(BMI_class = factor(BMI_class,
+                            levels = c("underweight", "normal weight", )
+                            ))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

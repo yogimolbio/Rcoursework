@@ -1,0 +1,352 @@
+---
+title: "lab6_modelling"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## recrate a tibble
+```{r, eval=FALSE, echo=FALSE}
+library(tidyverse)
+
+
+library(stringr)
+
+library(broom)
+library(dplyr)
+
+```
+
+
+```{r}
+names <- c("Apache_2.0", "MIT", "GPLv3", "GPLv2", "BSD 3", "LGPLv2.1","BSD2", "Microsoft Public", "Microsoft .NET Library", "LGPL2.0")
+
+pct <- c(28, 26, 10, 10, 5, 4, 2, 1, 1, 1)
+
+table <- tibble(names, pct)
+
+table  
+
+table %>% 
+  arrange(desc(pct)) %>%
+  ggplot(mapping = aes(
+    y = pct,
+    x = fct_reorder(names, pct, .desc = TRUE)
+    ))+
+  geom_col()+
+  labs(x = element_text("licenses"),
+       y = element_text("percentage")
+  )
+```
+
+
+## Data gravier data
+
+```{r}
+load("data/gravier.RData")
+
+View(gravier)
+
+dim(gravier)
+
+head(gravier)
+
+str(gravier)
+
+gravier
+```
+
+```{r}
+
+gravier_data <- 
+mutate(as_tibble(pluck(gravier, "x")),
+       outcome = pluck(gravier, "y"))
+
+View(gravier_data)
+
+gravier_data <- 
+  gravier_data %>% 
+  select("outcome", everything())
+
+gravier_data <- 
+  gravier_data %>% 
+  mutate(outcome = 
+    case_when(outcome == "good" ~ 0,
+              outcome == "poor" ~ 1)
+  )
+
+
+gravier_data %>% 
+  count(outcome)
+```
+## Q1 using purrrr g2E09
+```{r}
+gravier_data %>% 
+  glm(outcome ~ g2E09,
+      data = .,
+      family = binomial(link = "logit"))
+
+## intercept = -0.737
+## the slope = -2.184
+  
+```
+
+## Q2 what's the P-value
+
+```{r}
+fit <- 
+  gravier_data %>% 
+  glm(outcome ~ g2E09,
+      data = .,
+      family = binomial(link = "logit"))
+
+tidy(fit) %>% 
+  filter(term == "g2E09") %>% 
+  select(term, p.value) %>% 
+  mutate(p.value = round(p.value, digits = 4))
+```
+
+## Q3 creating a long_data
+
+```{r}
+gravier_data_long <- 
+  gravier_data %>% 
+  pivot_longer(cols = contains("g"),
+               names_to = "gene",
+               values_to = "log2_expr_level")
+
+
+gravier_data_nested <- 
+  gravier_data_long %>% 
+  group_by(gene) %>% 
+  nest() %>% 
+  ungroup()
+
+View(gravier_data_nested)
+```
+
+## continuation -> sample_n()
+
+```{r}
+set.seed(7) 
+gravier_data_nested <-
+  gravier_data_nested %>% 
+  sample_n(size = 100)
+```
+
+## continuation
+
+```{r}
+gravier_data_nested <- gravier_data_nested %>% 
+   mutate(mdl = map(data, ~glm(outcome ~ log2_expr_level, 
+                           data = .x,
+                           family = binomial(link = "logit"))))
+
+gravier_data_nested
+
+```
+
+
+## continuation
+
+```{r}
+library(dplyr)
+gravier_data_nested <- gravier_data_nested %>%
+  mutate(mdl_tidy = map(mdl, tidy, conf.int = TRUE)) %>% 
+  unnest(mdl_tidy)
+
+gravier_data_nested
+```
+
+## continuation
+```{r}
+gravier_data_nested <- 
+  gravier_data_nested %>% 
+  filter(term == "log2_expr_level" )
+
+gravier_data_nested
+```
+
+```{r}
+gravier_data_nested <- 
+  gravier_data_nested %>% 
+mutate( identified_as = case_when(p.value < 0.05 ~ "significant",
+                                   p.value > 0.05 ~"non_significant"))
+
+gravier_data_nested
+```
+
+```{r}
+gravier_data_nested <- 
+  gravier_data_nested %>% 
+mutate(neg_log10_p = -log10(p.value))
+
+gravier_data_nested
+
+```
+
+```{r}
+
+gravier_data_nested %>% 
+  ggplot(mapping = aes(
+    x = fct_reorder(gene, neg_log10_p, .desc = TRUE),
+    y = neg_log10_p,
+    color = identified_as)
+  )+
+  geom_point()+
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed")+
+  labs(x= "Genes",
+       y = "neg log10[p]")+
+  theme_classic()+
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.4, size = 4))
+
+```
+
+
+```{r}
+gravier_data_nested %>% 
+  ggplot(mapping = aes(
+    y = fct_reorder(gene, estimate, .desc = TRUE),
+    x = estimate,
+    color = identified_as)
+  )+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype = "dashed")+
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high))+
+  labs(x= "Estimate",
+       y = "gene")+
+  theme_classic()+
+  theme(legend.position = "bottom",
+        axis.text.y = element_text(angle = 0,
+                                   vjust = 0.5,
+                                   hjust=0.4,
+                                   size = 4))
+```
+```{r}
+gravier_data_nested %>%
+  ggplot(aes(y = fct_reorder(gene, estimate, .desc = TRUE),
+             x = estimate,
+             color = identified_as))+
+  geom_point()+
+  #coord_flip()+
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high))+
+  geom_vline(xintercept = 0, linetype = "dashed")+
+  theme_classic()
+```
+```{r}
+gravier_data_nested %>%
+  filter(identified_as == "significant") %>% 
+   ggplot(aes(y = fct_reorder(gene, estimate, .desc = TRUE),
+             x = estimate,
+             color = identified_as))+
+  geom_point()+
+  geom_errorbar(mapping = aes(xmin = conf.low, xmax = conf.high), width = 0.2)+
+  #coord_flip()+
+  geom_linerange(aes(xmin = conf.low, xmax = conf.high))+
+  geom_vline(xintercept = 0, linetype = "dashed")+
+  theme_classic()
+ 
+```
+```{r}
+gravier_data_wide = gravier_data %>%
+  select(outcome, pull(gravier_data_nested, gene))
+
+gravier_data_wide
+```
+##PCA plot
+
+```{r}
+pca_fit <- gravier_data_wide %>% 
+  select(where(is.numeric)) %>% 
+  prcomp(scale = TRUE)
+
+```
+
+```{r}
+pca_fit %>%
+  augment(gravier_data_wide) %>% 
+  mutate(outcome = factor(outcome)) %>% 
+  ggplot(mapping = aes(x = .fittedPC1,
+                       y = .fittedPC2,
+                       color = outcome))+
+  geom_point(size = 1.5) +
+  theme_classic()+
+  theme(legend.position = "bottom")
+```
+
+##Rotation plot
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "rotation")
+```
+
+```{r}
+# define arrow style for plotting
+arrow_style <- arrow(
+  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+)
+
+# plot rotation matrix
+pca_fit %>%
+  tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
+  ggplot(aes(PC1, PC2)) +
+  geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+  geom_text(
+    aes(label = column),
+    hjust = 1, nudge_x = -0.02, 
+    color = "#904C2F"
+  ) +
+  coord_fixed() + # fix aspect ratio to 1:1
+  theme_minimal()
+```
+## Variance explained by each PC
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "eigenvalues")
+```
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "eigenvalues") %>%
+  slice_max(percent, n=10) %>%
+  ggplot(aes(PC, percent)) +
+  geom_col(fill = "#56B4E9", alpha = 1) +
+  scale_x_continuous(breaks = 1:10) +
+  scale_y_continuous(
+    labels = scales::percent_format(),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

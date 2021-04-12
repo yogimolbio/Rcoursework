@@ -1,0 +1,99 @@
+---
+title: "Lab 5 group 4"
+author: "Signe"
+date: "3 3 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R group assignment
+
+```{r echo=FALSE}
+library(tidyverse)
+library(patchwork)
+```
+
+```{r warning = FALSE, echo=FALSE, message=FALSE}
+peptide_data <- read_csv(file = "data/peptide-detail-ci.csv")
+meta_data <- read_csv(file = "data/subject-metadata.csv")
+
+peptide_meta_data <- left_join(peptide_data, meta_data, by = "Experiment") %>% 
+  select(-matches("D[RQP]")) %>% 
+  mutate(Age = as.numeric(Age)) %>% 
+  na_if("N/A")
+
+allele_data <- peptide_meta_data %>%
+  distinct(Experiment, .keep_all = TRUE) %>%
+  select(Subject, matches("HLA"))
+
+
+allele_data_long <- allele_data %>% 
+  pivot_longer(cols = contains("HLA"),
+               names_to = "Gene",
+               values_to = "Allele")
+
+allele_data_long <- 
+  allele_data_long %>%
+  mutate(Allele_F_1_2 = str_sub(Allele, 1L, 7L),
+        Gene = str_sub(Gene, 1L, 5L)) %>% 
+  drop_na()
+
+```
+
+
+```{r}
+hlaa1 <- allele_data_long %>% 
+  filter(Gene == "HLA-A") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct))%>%
+  ggplot(aes(x = pct,
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family = "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3,
+        plot.margin = unit(c(0.1,0.1,0.1,0.1), "mm"))+
+  scale_x_continuous(limits = c(0,35))+
+  labs(x = "", 
+       y = "Allele",
+       title = "HLA-A")
+  
+hlab1 <- allele_data_long %>% 
+  filter(Gene == "HLA-B") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct))%>%
+  ggplot(aes(x = pct,
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family = "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 3,
+        plot.margin = unit(c(0.1,0.1,0.1,0.1), "mm"))+
+  scale_x_continuous(limits = c(0,35))+
+  labs(x = "Observed Allele Frequency (Within each gene)[%]", 
+       y = "",
+       title = "HLA-B")
+
+hlac1 <- allele_data_long %>% 
+  filter(Gene == "HLA-C") %>% 
+  count(Allele_F_1_2) %>% 
+  mutate(pct = n/sum(n)*100, Allele_F_1_2 = fct_reorder(Allele_F_1_2, pct))%>%
+  ggplot(aes(x = pct,
+             y = Allele_F_1_2))+
+  geom_col()+
+  theme_minimal(base_family = "Avernir", base_size = 8)+
+  theme(plot.title = element_text(hjust = 0.5), 
+        aspect.ratio = 3,
+        plot.margin = unit(c(0.1,0.1,0.1,0.1), "mm"))+
+  scale_x_continuous(limits = c(0,35))+
+  labs(x = "", 
+       y = "",
+       title = "HLA-C")
+  
+hlaa1 + hlab1 + hlac1
+
+
+```
